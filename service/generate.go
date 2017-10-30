@@ -21,7 +21,7 @@ package service
 import (
 	"fmt"
 	"net/http"
-
+	"log"
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
@@ -35,11 +35,16 @@ const (
 	ERROR     = 500
 	JSONEMPTY = "JSON cannot be empty"
 	NAMEEMPEY = "NAME cannot be empty"
+	PARSEERROR = "Parse Error"
 )
 
 type JsonString struct {
 	Name  string `json:"name"`
 	Jsons string `json:"json"`
+}
+
+type GoStruct struct{
+	Data string `json:"data"`
 }
 
 func Ping(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -78,7 +83,7 @@ func GenerateAPI(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		fmt.Fprint(w, err.Error())
 	}
 
-	//log.Println(string(jsons))
+	log.Println(string(jsons))
 	mapStruct, mapTag, err := parse.ParseJsonBytes(js.Name, jsons)
 	if err != nil {
 		w.WriteHeader(ERROR)
@@ -86,6 +91,20 @@ func GenerateAPI(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	}
 
 	data := generation.Generate(js.Name, mapStruct, mapTag)
+	log.Println(string(data))
 
-	fmt.Fprint(w, data)
+	gs := GoStruct{
+		Data:base64.StdEncoding.EncodeToString([]byte(data)),
+	}
+
+	respon, err := json.Marshal(gs)
+	if err != nil {
+		w.WriteHeader(ERROR)
+		log.Println(err.Error())
+		fmt.Fprintf(w, PARSEERROR)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, string(respon))
 }
